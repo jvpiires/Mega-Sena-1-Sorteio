@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mega-Sena – Jogo Sugerido</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #1e3c72, #2a5298);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      padding: 20px;
+      margin: 0;
+      text-align: center;
+    }
+
+    h1, h2 {
+      margin-bottom: 10px;
+    }
+
+    .numeros {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .bola {
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .bola:hover { transform: scale(1.1); }
+
+    .sugerido .bola {
+      background-color: #fff;
+      color: #2a5298;
+    }
+
+    .ganhador .bola {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .info {
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+      opacity: 0.9;
+    }
+
+    .section {
+      margin: 30px 0;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 Mega-Sena</h1>
+
+  <div class="section">
+    <h2>🏆 Jogo Ganhador</h2>
+    <div class="info" id="infoGanhador">Carregando...</div>
+    <div class="numeros ganhador" id="resultadoGanhador"></div>
+  </div>
+
+  <div class="section">
+    <h2>🔮 Jogo Sugerido (baseado em frequência)</h2>
+    <div id="jogoContainer">Carregando...</div>
+  </div>
+
+  <footer>Fonte: API da Loteria Caixa não-oficial | Baseado nos últimos 10 concursos</footer>
+
+  <script>
+    function sortearNumeros(possibilidades, quantidade = 6) {
+      const sorteados = new Set();
+      while (sorteados.size < quantidade) {
+        const idx = Math.floor(Math.random() * possibilidades.length);
+        sorteados.add(possibilidades[idx]);
+      }
+      return Array.from(sorteados).sort((a, b) => a - b);
+    }
+
+    async function carregarDados() {
+      try {
+        // Pegar último concurso (ganhador)
+        const resGanhador = await fetch('https://loteriascaixa-api.herokuapp.com/api/megasena/latest');
+        const dadosGanhador = await resGanhador.json();
+        const dezenasGanhadoras = dadosGanhador.dezenas.map(n => parseInt(n, 10));
+        const dataSorteio = dadosGanhador.data;
+        const ganhadorEl = document.getElementById('resultadoGanhador');
+        const infoGanhador = document.getElementById('infoGanhador');
+        ganhadorEl.innerHTML = '';
+        infoGanhador.textContent = `Data do último sorteio: ${dataSorteio}`;
+
+        dezenasGanhadoras.forEach(n => {
+          const bola = document.createElement('div');
+          bola.className = 'bola';
+          bola.textContent = String(n).padStart(2, '0');
+          ganhadorEl.appendChild(bola);
+        });
+
+        // Pegar últimos 10 concursos
+        const resHistorico = await fetch('https://loteriascaixa-api.herokuapp.com/api/megasena');
+        const historico = await resHistorico.json();
+        const ultimos10 = historico.slice(0, 10);
+
+        const todasDezenas = ultimos10.flatMap(c => c.dezenas.map(n => parseInt(n, 10)));
+        const freq = {};
+        todasDezenas.forEach(n => freq[n] = (freq[n] || 0) + 1);
+
+        const ordenados = Object.entries(freq)
+          .sort((a, b) => b[1] - a[1])
+          .map(entry => Number(entry[0]));
+
+        const top15 = ordenados.slice(0, 15); // top 15 mais frequentes
+
+        // Gerar 1 jogo entre os top 15
+        const jogo = sortearNumeros(top15, 6);
+
+        // Mostrar o jogo sugerido
+        const container = document.getElementById('jogoContainer');
+        container.innerHTML = '';
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        info.textContent = `Jogo sugerido | Baseado nos números mais frequentes`;
+
+        const numeros = document.createElement('div');
+        numeros.className = 'numeros sugerido';
+
+        jogo.forEach(n => {
+          const bola = document.createElement('div');
+          bola.className = 'bola';
+          bola.textContent = String(n).padStart(2, '0');
+          numeros.appendChild(bola);
+        });
+
+        container.appendChild(info);
+        container.appendChild(numeros);
+
+      } catch (error) {
+        document.getElementById('jogoContainer').textContent = 'Erro ao carregar dados.';
+        document.getElementById('resultadoGanhador').textContent = 'Erro ao carregar.';
+        console.error(error);
+      }
+    }
+
+    carregarDados();
+  </script>
+</body>
+</html>
